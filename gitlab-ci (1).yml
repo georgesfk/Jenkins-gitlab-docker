@@ -1,0 +1,44 @@
+variables:
+  DOCKER_USERNAME: markayraph
+
+image: maven:3.9.8-eclipse-temurin-17
+
+stages:
+  - build
+  - test
+  - package
+
+cache:
+  paths:
+    - .m2/repository
+  key: ${CI_COMMIT_REF_SLUG}
+
+build:
+  stage: build
+  script:
+    - mvn clean package -DskipTests
+  artifacts:
+    paths:
+      - target/*.jar
+    expire_in: 1 hour
+
+test:
+  stage: test
+  script:
+    - mvn test
+  dependencies:
+    - build
+
+docker:
+  stage: package
+  image: docker:latest
+  services:
+    - docker:dind
+  script:
+    - docker build -t $DOCKER_USERNAME/calculator:$CI_PIPELINE_IID .
+    - echo $DOCKER_PASSWORD | docker login -u $DOCKER_USERNAME --password-stdin
+    - docker push $DOCKER_USERNAME/calculator:$CI_PIPELINE_IID
+  dependencies:
+    - build
+  only:
+    - main
